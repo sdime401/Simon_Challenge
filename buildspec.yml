@@ -1,0 +1,33 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.8  #This will install python
+  pre_build:
+    commands:
+      - echo ------------ THIS IS THE BEGINNING OF THE PRE_BUILD PHASE ---------------
+      - echo Checking the python version
+      - python --version
+      - echo Installing CFN-LINT
+      - pip3 install cfn-lint
+      - echo Checking the CFN-LINT version
+      - cfn-lint --version
+      
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo *********** Testing the cloudformation template *************
+      - cfn-lint webiste.yml
+      - echo ********** Build CloudFormation template started on `date`**********
+      - aws cloudformation package --template-file Cloudformation-challenge.yml --s3-bucket my-deploy-artifact-654 --output-template-file OutputTemplate.yaml 
+      
+  post_build:
+    commands:
+      - echo Build completed on `date`
+    
+artifacts:
+  files:
+    - Cloudformation-challenge.yml
+    - OutputTemplate.yaml  
+    
