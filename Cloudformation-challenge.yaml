@@ -25,13 +25,12 @@ Parameters:
   DomainName:
     Type: String
     Description: enter your website domain name
-  # MyHostedZoneName:
-  #   Type: String
-  #   Default: myaws2022lab.com
-  #   Description: The name of the Route 53 hosted zone
   HostedZoneIdParameter:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /HostedZoneId
+  CertificateParameter:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /Mycertificate
 Mappings: 
   RegionMap: 
     us-east-1: # Testing only
@@ -75,13 +74,6 @@ Resources:
       Tags:
         - Key: Name
           Value: ELBSecurityGroup
-  MyCertificate:
-    Type: "AWS::CertificateManager::Certificate"
-    Properties:
-      DomainName: myaws2022lab.com
-      SubjectAlternativeNames:
-        - www.myaws2022lab.com
-      ValidationMethod: DNS
   ElasticLoadBalancer:
     Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
     Properties:
@@ -103,20 +95,17 @@ Resources:
       LoadBalancerArn: !Ref ElasticLoadBalancer
       Port: 80
       Protocol: HTTP
-  ListenerRule1:
-    Type: 'AWS::ElasticLoadBalancingV2::ListenerRule'
+  ElbListener2:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
     Properties:
-      Actions:
+      DefaultActions:
         - Type: forward
-          ForwardConfig:
-            TargetGroups:
-              - TargetGroupArn: !Ref ELBTargetGroup
-      Conditions:
-        - Field: path-pattern
-          Values:
-           - foo
-      ListenerArn: !Ref ElbListener
-      Priority: 1
+          TargetGroupArn: !Ref ELBTargetGroup
+      LoadBalancerArn: !Ref ElasticLoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref CertificateParameter
   AsgConfig:
     Type: AWS::AutoScaling::LaunchConfiguration
     Properties:
@@ -151,25 +140,10 @@ Resources:
         - Key: Name
           Value: MyASG-Instance
           PropagateAtLaunch: true
-  # MyHostedZone:
-  #   Type: "AWS::Route53::HostedZone"
-  #   Properties:
-  #     Name: myaws2022lab.com
   myDNSrecord: 
-    # Type: AWS::Route53::RecordSetGroup
-    # Properties: 
-    #   Comment: String
-    #   HostedZoneId: !Ref HostedZoneIdParameter
-    #   #HostedZoneName: myaws2022lab.com.
-    #   RecordSets: 
-    #     - Name: www.myaws2022lab.com.
-    #       ResourceRecords: 
-    #       - !Ref ElasticLoadBalancer
-    #       TTL: '900'
-    #       Type: A
     Type: AWS::Route53::RecordSetGroup
     Properties:
-      #HostedZoneName: example.com.
+      HostedZoneName: myaws2022lab.com.
       Comment: Zone apex alias targeted to myELB LoadBalancer.
       RecordSets:
       - Name: www.myaws2022lab.com.
@@ -203,6 +177,6 @@ Outputs:
     Value: !Ref AsgGroup
   outputWebserverDNSName:
     Description: DNS A record name of the website
-    Value: !Join [ "", [ "https://", !Ref myDNSrecord ] ] # return the Name of the DNS A record
+    Value: !Join [ "", [ "https://", www.myaws2022lab.com ] ] # return the Name of the DNS A record
 
     
