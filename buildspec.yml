@@ -18,7 +18,7 @@ phases:
     commands:
       - echo Build started on `date`
       - echo *********** Testing the cloudformation template *************
-      - cfn-lint webiste.yml
+      - cfn-lint Cloudformation-challenge.yml
       - echo ********** Build CloudFormation template started on `date`**********
       - aws cloudformation package --template-file Cloudformation-challenge.yml --s3-bucket my-deploy-artifact-654 --output-template-file OutputTemplate.yaml 
       
