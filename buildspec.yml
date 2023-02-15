@@ -3,7 +3,7 @@ version: 0.2
 phases:
   install:
     runtime-versions:
-      python: 3.8  #This will install python
+      python: 3.10  #This will install python
   pre_build:
     commands:
       - echo ------------ THIS IS THE BEGINNING OF THE PRE_BUILD PHASE ---------------
