@@ -1,0 +1,208 @@
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  This template will Create and deploy a running instance of a web server
+Parameters:
+  CustomVPC:
+    Description: Select One VPC available in your existing account
+    Type: AWS::EC2::VPC::Id
+  PublicSubnets:
+    Type: 'List<AWS::EC2::Subnet::Id>'
+    Description: The list of SubnetIds in your Virtual Private Cloud (VPC)
+    ConstraintDescription: >-
+      must be a list of at least two existing subnets associated with at least
+      two different availability zones. They should be residing in the selected
+      Virtual Private Cloud.
+  InstanceType:
+    Description: WebServer EC2 instance type (has default, AllowedValues)
+    Type: String
+    Default: t2.small
+    AllowedValues:
+      - t1.micro
+      - t2.nano
+      - t2.small
+      - t3.micro
+  DomainName:
+    Type: String
+    Description: enter your website domain name
+  # MyHostedZoneName:
+  #   Type: String
+  #   Default: myaws2022lab.com
+  #   Description: The name of the Route 53 hosted zone
+  HostedZoneIdParameter:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /HostedZoneId
+Mappings: 
+  RegionMap: 
+    us-east-1: # Testing only
+      HVM64: ami-0aa7d40eeae50c9a9   
+    us-west-1:
+      HVM64: ami-0bdb828fd58c52235
+    us-east-2:
+      HVM64: ami-05bfbece1ed5beb54
+    us-west-2:
+      HVM64: ami-06cd52961ce9f0d85
+    eu-west-3:
+      HVM64: ami-08569b978cc4dfa10
+
+Resources:
+  ELBTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      HealthCheckIntervalSeconds: 6
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 2
+      VpcId: !Ref CustomVPC
+      TargetType: instance
+  ELBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "ELBTraffic"
+      GroupDescription: "Enable HTTP access on the inbound port for ELB"
+      VpcId: !Ref CustomVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: ELBSecurityGroup
+  MyCertificate:
+    Type: "AWS::CertificateManager::Certificate"
+    Properties:
+      DomainName: myaws2022lab.com
+      SubjectAlternativeNames:
+        - www.myaws2022lab.com
+      ValidationMethod: DNS
+  ElasticLoadBalancer:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      Subnets: !Ref PublicSubnets
+      SecurityGroups:
+        - !Ref ELBSecurityGroup
+  ElbListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      DefaultActions:
+        - Type: "redirect"
+          RedirectConfig:
+            Protocol: "HTTPS"
+            Port: '443'
+            Host: "#{host}"
+            Path: "/#{path}"
+            Query: "#{query}"
+            StatusCode: "HTTP_301"
+      LoadBalancerArn: !Ref ElasticLoadBalancer
+      Port: 80
+      Protocol: HTTP
+  ListenerRule1:
+    Type: 'AWS::ElasticLoadBalancingV2::ListenerRule'
+    Properties:
+      Actions:
+        - Type: forward
+          ForwardConfig:
+            TargetGroups:
+              - TargetGroupArn: !Ref ELBTargetGroup
+      Conditions:
+        - Field: path-pattern
+          Values:
+           - foo
+      ListenerArn: !Ref ElbListener
+      Priority: 1
+  AsgConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      InstanceType: !Ref InstanceType
+      SecurityGroups:
+      - !Ref ELBSecurityGroup
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", HVM64]
+      UserData:
+        Fn::Base64: 
+          !Sub |
+            #!/bin/bash
+            sudo yum update -y
+            sudo yum install -y httpd
+            sudo systemctl start httpd
+            sudo systemctl enable httpd
+            sudo echo "<html><body><h1>Hello World from ${AWS::Region} requested by Caroline<h1></body></html>" > /var/www/html/index.html
+  AsgGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    DependsOn:
+      - ELBTargetGroup
+      - ElasticLoadBalancer
+    Properties:
+      VPCZoneIdentifier: !Ref PublicSubnets
+      LaunchConfigurationName: !Ref AsgConfig
+      MinSize: '2'
+      MaxSize: '4'
+      HealthCheckGracePeriod: 300
+      MaxInstanceLifetime: 2592000
+      TargetGroupARNs:
+        - !Ref ELBTargetGroup
+      Tags:
+        - Key: Name
+          Value: MyASG-Instance
+          PropagateAtLaunch: true
+  # MyHostedZone:
+  #   Type: "AWS::Route53::HostedZone"
+  #   Properties:
+  #     Name: myaws2022lab.com
+  myDNSrecord: 
+    # Type: AWS::Route53::RecordSetGroup
+    # Properties: 
+    #   Comment: String
+    #   HostedZoneId: !Ref HostedZoneIdParameter
+    #   #HostedZoneName: myaws2022lab.com.
+    #   RecordSets: 
+    #     - Name: www.myaws2022lab.com.
+    #       ResourceRecords: 
+    #       - !Ref ElasticLoadBalancer
+    #       TTL: '900'
+    #       Type: A
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      #HostedZoneName: example.com.
+      Comment: Zone apex alias targeted to myELB LoadBalancer.
+      RecordSets:
+      - Name: www.myaws2022lab.com.
+        Type: A
+        AliasTarget:
+          HostedZoneId: !GetAtt 'ElasticLoadBalancer.CanonicalHostedZoneID'
+          DNSName: !GetAtt 'ElasticLoadBalancer.DNSName'
+ 
+
+Outputs:
+  outputELBDNSName:
+    Description: DNS name of the application
+    Value: !GetAtt ElasticLoadBalancer.DNSName
+  outputELBTargetGroup:
+    Description: A reference to the created Target Group
+    Value: !Ref ELBTargetGroup
+  outputELBSecurityGroup:
+    Description: A reference to the created Security Group
+    Value: !Ref ELBSecurityGroup
+  outputElasticLoadBalancer:
+    Description: A reference to the created Elastic Load Balancer
+    Value: !Ref ElasticLoadBalancer
+  outputElasticListener:
+    Description: A reference to the created Elastic Load Balancer Listener
+    Value: !Ref ElbListener
+  outputAsgConfig: 
+    Description: Id for autoscaling launch configuration
+    Value: !Ref AsgConfig
+  outputAsgGroup: 
+    Description: Id for autoscaling group
+    Value: !Ref AsgGroup
+  outputWebserverDNSName:
+    Description: DNS A record name of the website
+    Value: !Join [ "", [ "https://", !Ref myDNSrecord ] ] # return the Name of the DNS A record
+
+    
