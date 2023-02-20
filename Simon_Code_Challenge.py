@@ -12,6 +12,7 @@ def check_card_validity():
     :Param credit_removed_hiphen:  removes any hyphens from the credit card number using the replace function and assigns it to a new variable credit_removed_hiphen
     :Param valid:The variable valid is initialized to True
     :Param length_16: checks if the credit card number is 16 digits long and starts with either 4, 5 or 6. If it matches, then the variable length_16 is assigned True
+    :Param length_19: checks if the credit card number is 19 digits long and starts with either 4, 5 or 6. If it matches, then the variable length_16 is assigned True
     :Param consecutive:  checks if there are more than 4 consecutive repeating digits in the credit card number, after removing any hyphens. If it matches, then the variable consecutive is assigned True
     """
 
@@ -28,16 +29,17 @@ def check_card_validity():
                 valid = True
                 
                 # These three lines use regular expressions to check whether the credit card number is valid
-                length_16 = bool(re.match(r'^[4-6]\d{15}$',credit))    
+                length_16 = bool(re.match(r'^[4-6]\d{15}$',credit))  
+                length_19 = bool(re.match(r'^[4-6]\d{3}-\d{4}-\d{4}-\d{4}$',credit))  
                 consecutive = bool(re.findall(r'(?=(\d)\1\1\1)',credit_removed_hiphen))
                 
                 # checking if the above regural expressions are true
-                if length_16 == True:
+                if length_16 == True or length_19 == True:
                     if consecutive == True:
                         valid=False
                 else:
                     valid = False       
-                if valid == True:
+                if valid:
                     print('Valid')
                 else:
                     print('Invalid')
