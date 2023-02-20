@@ -12,7 +12,7 @@ def check_card_validity():
     :Param credit_removed_hiphen:  removes any hyphens from the credit card number using the replace function and assigns it to a new variable credit_removed_hiphen
     :Param valid:The variable valid is initialized to True
     :Param length_16: checks if the credit card number is 16 digits long and starts with either 4, 5 or 6. If it matches, then the variable length_16 is assigned True
-    :Param length_19: checks if the credit card number is 19 digits long and starts with either 4, 5 or 6. If it matches, then the variable length_16 is assigned True
+    :Param length_19: checks if the credit card number is 19 digits long and starts with either 4, 5 or 6. If it matches, then the variable length_19 is assigned True
     :Param consecutive:  checks if there are more than 4 consecutive repeating digits in the credit card number, after removing any hyphens. If it matches, then the variable consecutive is assigned True
     """
 
